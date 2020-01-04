@@ -1,0 +1,30 @@
+# User-specific files
+*.suo
+*.user
+**/.vs/**
+
+# TFS-related files
+*.vssscc
+*.vspscc
+
+# Nuget-related files
+packages
+
+# Build outputs
+**/[Bb]in/*
+**/[Cc]sx/*
+**/[Ee]cf/*
+**/[Oo]bj/*
+**/[Rr]cf/*
+**/[Pp]ublish/*
+**/[Dd]ebug/*
+
+# Logs
+**/Logs/**
+**/LoggingBuffer*
+src/Summit.Forecaster.DB/Import Schema Logs/*
+
+.vscode/launch.json
+.vscode/tasks.json
+**/launchSettings*
+
