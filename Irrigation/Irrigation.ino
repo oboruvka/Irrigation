@@ -10,6 +10,11 @@ const char* password = "blueWifi148";
 const char* mqtt_server = "192.168.1.147";
 const char* programId = "Irrigation v1";
 const char* loggingTopic = "Logging/Irrigation";
+static long lastTime = 0;
+static long shutdownAllAfter = 10000;
+
+#define OFF 0x1
+#define ON  0x0
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -22,6 +27,7 @@ void setup()
 	setupMqtt();
 	setupDiode();
 	setupMcp();
+	lastTime = millis();
 }
 
 void loop()
@@ -29,6 +35,7 @@ void loop()
 	if (!mqttClient.connected())
 		MQTT_reconnect();
 	mqttClient.loop();
+	setOffIfNotActive();
 }
 
 void setupDebug()
@@ -81,8 +88,24 @@ void setupMcp()
 	mcp.pinMode(6, OUTPUT);
 	mcp.pinMode(7, OUTPUT);
 	mcp.pinMode(8, OUTPUT);
+	setAllToOff();
+}
+
+void setAllToOff() {
+	Log("Setting all to off");
 	for (size_t i = 0; i < 8; i++)
-		mcp.digitalWrite(i, HIGH);
+		mcp.digitalWrite(i, OFF);
+}
+
+void setOffIfNotActive()
+{
+	if (millis() - lastTime > shutdownAllAfter)
+	{
+		//TODO do not proceed if all is already off
+		Log("Emergency shotdown will proceed because of inactivity.");
+		setAllToOff();
+		lastTime = millis();
+	}
 }
 
 void MQTT_callback(char* _topic, byte* _payload, unsigned int length)
@@ -92,15 +115,22 @@ void MQTT_callback(char* _topic, byte* _payload, unsigned int length)
 	std::string log = "MQTT message arrived [" + topic + "]:[" + payload + "]";
 	Log(log.c_str());
 	Blink(100, 100);
-	int command = payload == "on" ? LOW : HIGH; //LOW turns on, HIGH off
-	
-	//TODO
-	if (topic == "Studna")
-		mcp.digitalWrite(1, command);	
-	if (topic == "JV")
-		mcp.digitalWrite(2, command);
-	//delay(300);
-	//mcp.digitalWrite(i, HIGH);///OFF
+	int command = payload == "on" ? ON : OFF; 
+
+	if(topic.substr(0,10) == "Irrigation")// message arrived it means activity
+		lastTime = millis();
+		
+	//TODO other ones, maybe better code
+	// also all off needed
+	//also logic that dont start motor without at least ventil open
+	if (topic == "Irrigation/Studna") {
+		Log("Setting studna", command == ON ? "on" : "off");
+		mcp.digitalWrite(0, command);
+	}
+	if (topic == "Irrigation/JV") {
+		Log("Setting JV", command == ON ? "on" : "off");
+		mcp.digitalWrite(1, command);
+	}
 }
 
 void MQTT_reconnect()
@@ -131,10 +161,18 @@ void Log(const char* logMsg) {
 	mqttClient.publish(loggingTopic, logMsg);
 }
 
+void Log(const char* logMsg, const char* logPar) {
+	std::string msg(logMsg);
+	msg += " ";
+	msg += logPar;
+	Serial.println(msg.c_str());
+	mqttClient.publish(loggingTopic, msg.c_str());
+}
+
 void Blink(int nDelayOn, int nDelayOff)
 {
-	digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
+	digitalWrite(LED_BUILTIN, OFF);  
 	delay(nDelayOn);
-	digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level 
+	digitalWrite(LED_BUILTIN, ON);
 	delay(nDelayOff);
 }
